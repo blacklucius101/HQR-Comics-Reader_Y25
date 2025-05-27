@@ -10,7 +10,8 @@ import android.view.Menu
 import android.view.MenuInflater
 import android.view.MenuItem
 import android.view.View
-import com.afollestad.materialdialogs.MaterialDialog
+import com.afollestad.materialdialogs.MaterialDialog // Should resolve to new version
+import com.afollestad.materialdialogs.callbacks.onPositive // For onPositive callback
 import com.tiagohs.hqr.R
 import com.tiagohs.hqr.download.DownloaderService
 import com.tiagohs.hqr.helpers.extensions.hasPermission
@@ -195,12 +196,11 @@ class ComicChaptersFragment:
             }
 
             override fun onPermissionsDenied() {
-                MaterialDialog.Builder(context!!)
-                        .content(R.string.persmission_needed_content)
-                        .positiveText(android.R.string.yes)
-                        .negativeText(android.R.string.no)
-                        .build()
-                        .show()
+                MaterialDialog(context!!).show {
+                    message(R.string.persmission_needed_content)
+                    positiveButton(android.R.string.yes)
+                    negativeButton(android.R.string.no)
+                }
             }
 
             override fun onNeverAskAgain(requestCode: Int) {}
@@ -325,26 +325,29 @@ class ComicChaptersFragment:
     private fun showDeleteChaptersConfirmationDialog() {
         val count = adapter?.selectedItemCount ?: return
 
-        MaterialDialog.Builder(context!!)
-                    .content(resources.getQuantityString(R.plurals.confirm_delete_chapters, count))
-                    .positiveText(android.R.string.yes)
-                    .negativeText(android.R.string.no)
-                    .onPositive { _, _ -> deleteChapters(getSelectedChapters()) }
-                    .build()
-                    .show()
+        MaterialDialog(context!!).show {
+            message(text = resources.getQuantityString(R.plurals.confirm_delete_chapters, count, count)) // Pass count for plurals
+            positiveButton(android.R.string.yes) {
+                deleteChapters(getSelectedChapters())
+            }
+            negativeButton(android.R.string.no)
+        }
     }
 
     private fun deleteChapters(items: List<ChapterItem>) {
         destroyActionMode()
         if (items.isEmpty()) return
 
-        deletingDialog = MaterialDialog.Builder(context!!)
-                                    .progress(true, 0)
-                                    .content(R.string.deleting)
-                                    .cancelable(false)
-                                    .build()
+        // For progress, new API is different. A simple message dialog:
+        deletingDialog = MaterialDialog(context!!).show {
+            message(R.string.deleting)
+            cancelable(false)
+            // If you need an actual progress bar, you'd use customView or specific progress functions
+            // which are more involved than the old .progress(true, 0)
+            // For now, a simple "Deleting..." message dialog.
+        }
+        // deletingDialog?.show() // show is called by the MaterialDialog(context!!).show { ... } block
 
-        deletingDialog?.show()
         presenter.deleteChapters(items)
     }
 

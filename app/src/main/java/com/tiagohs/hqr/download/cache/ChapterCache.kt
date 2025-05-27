@@ -2,8 +2,9 @@ package com.tiagohs.hqr.download.cache
 
 import android.content.Context
 import android.text.format.Formatter
-import com.github.salomonbrys.kotson.fromJson
+// Removed: import com.github.salomonbrys.kotson.fromJson
 import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken // Added for TypeToken
 import com.jakewharton.disklrucache.DiskLruCache
 import com.tiagohs.hqr.helpers.extensions.saveTo
 import com.tiagohs.hqr.helpers.utils.DiskUtils
@@ -65,8 +66,10 @@ class ChapterCache(
     }
 
     private fun onGetPageListFromGson(chapterKey: String): List<Page> {
-        return diskCache.get(chapterKey).use {
-            gson.fromJson(it.getString(0))
+        return diskCache.get(chapterKey).use { snapshot ->
+            snapshot.getString(0)?.let { jsonString ->
+                gson.fromJson<List<Page>>(jsonString, object : TypeToken<List<Page>>() {}.type)
+            } ?: emptyList() // Return empty list if snapshot or string is null
         }
     }
 

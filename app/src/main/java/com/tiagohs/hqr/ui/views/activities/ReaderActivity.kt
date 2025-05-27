@@ -11,7 +11,8 @@ import android.view.View
 import android.view.WindowManager
 import android.view.animation.Animation
 import android.view.animation.AnimationUtils
-import com.afollestad.materialdialogs.MaterialDialog
+import com.afollestad.materialdialogs.MaterialDialog // Existing import, should point to new version
+import com.afollestad.materialdialogs.callbacks.onPositive // Specific import for callback
 import com.github.chrisbanes.photoview.OnViewTapListener
 import com.tiagohs.hqr.R
 import com.tiagohs.hqr.models.sources.Page
@@ -103,12 +104,12 @@ class ReaderActivity: BaseActivity(), ReaderContract.IReaderView, IOnTouch {
 
     override fun onChapterUnavailable() {
 
-        MaterialDialog.Builder(this)
-                .content(R.string.chapter_not_available)
-                .positiveText(android.R.string.yes)
-                .onPositive { _, _ -> finish() }
-                .build()
-                .show()
+        MaterialDialog(this).show {
+            message(R.string.chapter_not_available)
+            positiveButton(android.R.string.yes) {
+                finish()
+            }
+        }
 
     }
 

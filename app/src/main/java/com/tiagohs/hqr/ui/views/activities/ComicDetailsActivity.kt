@@ -9,7 +9,8 @@ import android.support.v7.widget.LinearLayoutManager
 import android.view.MenuItem
 import android.view.View
 import android.view.animation.AnimationUtils
-import com.afollestad.materialdialogs.MaterialDialog
+import com.afollestad.materialdialogs.MaterialDialog // Keep this import for the new version
+import com.afollestad.materialdialogs.callbacks.onDismiss // Example of specific callback import if needed
 import com.squareup.picasso.Callback
 import com.tiagohs.hqr.R
 import com.tiagohs.hqr.helpers.tools.AppBarMovieListener
@@ -216,11 +217,12 @@ class ComicDetailsActivity: BaseActivity(), ComicDetailsContract.IComicDetailsVi
     }
 
     private fun showNotChapterAvailableMessage() {
-        MaterialDialog.Builder(this)
-                .content(R.string.comic_not_available)
-                .positiveText(android.R.string.yes)
-                .build()
-                .show()
+        MaterialDialog(this).show {
+            message(R.string.comic_not_available)
+            positiveButton(android.R.string.yes)
+            // No specific action on positive button in the old code, so none here.
+            // If there was an onPositive lambda, it would go into the positiveButton { } block.
+        }
     }
 
     override fun onConfigureFavoriteBtn(comic: ComicViewModel) {

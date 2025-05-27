@@ -1,14 +1,19 @@
 package com.tiagohs.hqr.ui.views.fragments
 
 import android.Manifest
+import android.app.Activity // Needed for onActivityResult
+import android.content.Intent // Needed for onActivityResult
 import android.net.Uri
 import android.os.Bundle
+import android.os.Environment // For initial path
 import android.preference.Preference
 import android.preference.PreferenceFragment
 import android.preference.SwitchPreference
-import android.support.customtabs.CustomTabsIntent
+import androidx.browser.customtabs.CustomTabsIntent
 import android.text.format.Formatter
 import com.afollestad.materialdialogs.MaterialDialog
+import com.afollestad.materialdialogs.callbacks.onPositive
+import com.afollestad.materialdialogs.files.folderChooser // New import for folder chooser
 import com.tiagohs.hqr.App
 import com.tiagohs.hqr.BuildConfig
 import com.tiagohs.hqr.R
@@ -61,6 +66,7 @@ class SettingsMainFragment: PreferenceFragment() {
         if (hasPremissionToWrite) {
             configureStorageUsed(findPreference(getString(R.string.key_download_storage_used)) as Preference)
             configureCacheStorageUsed(findPreference(getString(R.string.key_download_cache_used)) as Preference)
+            configureDownloadDirectory(findPreference(getString(R.string.key_download_directory)) as Preference) // Added call
         } else {
             preferenceScreen.removePreference(findPreference(getString(R.string.key_category_downloads)))
         }
@@ -68,6 +74,31 @@ class SettingsMainFragment: PreferenceFragment() {
         configureGithubUrl(findPreference(getString(R.string.key_github)) as Preference)
         configureUpdateVersion(findPreference(getString(R.string.key_update_version)) as Preference)
         configureCheckForUpdatesAutomatically(findPreference(getString(R.string.auto_updates_key)) as SwitchPreference)
+    }
+
+    private fun configureDownloadDirectory(preference: Preference) {
+        preference.summary = preferences.getDownloadsDirectory() // Display current path
+
+        preference.setOnPreferenceClickListener {
+            val currentPath = preferences.getDownloadsDirectory()
+            val initialFolder = if (currentPath.isNotEmpty()) java.io.File(currentPath) else Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+
+            MaterialDialog(activity).show {
+                folderChooser(
+                    initialDirectory = initialFolder,
+                    allowFolderCreation = true,
+                    context = requireContext() // Ensure context is passed if extension function needs it
+                ) { _, folder ->
+                    val selectedPath = folder.absolutePath
+                    preferences.setDownloadsDirectory(selectedPath)
+                    preference.summary = selectedPath
+                }
+                title(R.string.title_download_directory)
+                positiveButton(android.R.string.ok)
+                negativeButton(android.R.string.cancel)
+            }
+            true
+        }
     }
 
     private fun configureCheckForUpdatesAutomatically(switchPreference: SwitchPreference) {
@@ -103,14 +134,14 @@ class SettingsMainFragment: PreferenceFragment() {
                                 val body = result.release.changeLog
                                 val url = result.release.assets[0].downloadLink
 
-                                MaterialDialog.Builder(activity)
-                                        .title(R.string.check_new_update_avalible)
-                                        .content(body)
-                                        .positiveText(R.string.download)
-                                        .negativeText(R.string.ignore)
-                                        .onPositive { _, _ -> UpdaterService.downloadUpdate(activity, url) }
-                                        .build()
-                                        .show()
+                                MaterialDialog(activity).show {
+                                    title(R.string.check_new_update_avalible)
+                                    message(text = body)
+                                    positiveButton(R.string.download) {
+                                        UpdaterService.downloadUpdate(activity, url)
+                                    }
+                                    negativeButton(R.string.ignore)
+                                }
 
                             }
                             is GithubVersionResults.NoNewUpdate -> {
@@ -128,13 +159,13 @@ class SettingsMainFragment: PreferenceFragment() {
         preference.setSummary(getString(R.string.storage_used, downloadProvider.getDownloadDirectorySize()))
         preference.setOnPreferenceClickListener { p ->
 
-            MaterialDialog.Builder(activity)
-                    .content(R.string.clear_storage_content)
-                    .positiveText(android.R.string.yes)
-                    .negativeText(android.R.string.no)
-                    .onPositive { _, _ -> clearStorageFolder(preference) }
-                    .build()
-                    .show()
+            MaterialDialog(activity).show {
+                message(R.string.clear_storage_content)
+                positiveButton(android.R.string.yes) {
+                    clearStorageFolder(preference)
+                }
+                negativeButton(android.R.string.no)
+            }
 
             true
         }
@@ -180,13 +211,13 @@ class SettingsMainFragment: PreferenceFragment() {
         preference.setSummary(getString(R.string.storage_used, getPicassoCacheDirSize()))
         preference.setOnPreferenceClickListener { p ->
 
-            MaterialDialog.Builder(activity)
-                    .content(R.string.clear_cache_storage_content)
-                    .positiveText(android.R.string.yes)
-                    .negativeText(android.R.string.no)
-                    .onPositive { _, _ -> clearCacheFolder(preference) }
-                    .build()
-                    .show()
+            MaterialDialog(activity).show {
+                message(R.string.clear_cache_storage_content)
+                positiveButton(android.R.string.yes) {
+                    clearCacheFolder(preference)
+                }
+                negativeButton(android.R.string.no)
+            }
 
             true
         }
@@ -216,5 +247,26 @@ class SettingsMainFragment: PreferenceFragment() {
 
     private fun getApplicationComponent(): HQRComponent? {
         return (activity?.application as App).getHQRComponent()
+    }
+
+    // Remove onActivityResult if it was only for the file picker
+    // For now, assuming it might be used by other things, so just commenting out the relevant part
+    // If it's confirmed to be unused elsewhere, the entire method can be deleted.
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        // if (requestCode == DOWNLOAD_DIR_L || requestCode == DOWNLOAD_DIR_PRE_L) {
+        //     if (resultCode == Activity.RESULT_OK && data != null) {
+        //         val uri = data.data
+        //         if (uri != null) {
+        //             val path = com.nononsenseapps.filepicker.Utils.getSafFullPath(activity, uri)
+        //             if (path != null) {
+        //                 preferences.setDownloadsDirectory(path)
+        //                 findPreference(getString(R.string.key_download_directory))?.summary = path
+        //             } else {
+        //                 activity.toast(R.string.unknown_error)
+        //             }
+        //         }
+        //     }
+        // }
     }
 }

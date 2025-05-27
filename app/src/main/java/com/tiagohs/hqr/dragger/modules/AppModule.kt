@@ -38,4 +38,10 @@ class AppModule {
         ))
     }
 
+    @Provides
+    @Singleton
+    fun providePreferenceHelper(context: Context): com.tiagohs.hqr.helpers.tools.PreferenceHelper {
+        return com.tiagohs.hqr.helpers.tools.PreferenceHelper(context)
+    }
+
 }

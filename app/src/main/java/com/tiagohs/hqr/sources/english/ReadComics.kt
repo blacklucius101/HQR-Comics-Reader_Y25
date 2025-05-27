@@ -10,6 +10,7 @@ import com.tiagohs.hqr.models.view_models.ChapterViewModel
 import com.tiagohs.hqr.models.view_models.ComicViewModel
 import com.tiagohs.hqr.models.view_models.DefaultModelView
 import com.tiagohs.hqr.sources.ParserHttpSource
+import com.tiagohs.hqr.helpers.tools.PreferenceHelper // Added PreferenceHelper import
 import okhttp3.OkHttpClient
 import okhttp3.Response
 import org.jsoup.nodes.Document
@@ -20,14 +21,24 @@ import kotlin.collections.ArrayList
 
 class ReadComics(
         client: OkHttpClient,
-        chapterCache: ChapterCache): ParserHttpSource(client, chapterCache) {
+        chapterCache: ChapterCache,
+        private val preferenceHelper: PreferenceHelper // Added PreferenceHelper
+): ParserHttpSource(client, chapterCache) {
 
     override val id: Long = 1L
-    override val name: String = "Read Comics Book Online"
+    override val name: String = "Read Comics Book Online" // This might need to be dynamic if URL changes name
     override val language: LocaleDTO = LocaleDTO("Estados Unidos", "English", "EUA", "EN", Locale("EN"))
     override val hasPageSupport: Boolean = false
     override val hasThumbnailSupport: Boolean = false
-    override val baseUrl: String get() = "https://readcomicsonline.me/"
+    override val baseUrl: String
+        get() {
+            val customUrl = preferenceHelper.getCustomReadComicsUrl().trim()
+            return if (customUrl.isNotEmpty() && (customUrl.startsWith("http://") || customUrl.startsWith("https://"))) {
+                customUrl.removeSuffix("/") 
+            } else {
+                "https://readcomicsonline.li" // New default URL
+            }
+        }
 
     override val homeCategoriesEndpoint: String get() = "$baseUrl/"
     override val lastestComicsEndpoint: String get() = "$baseUrl/"
@@ -77,11 +88,11 @@ class ReadComics(
 
         if (elementSelector != null) {
             title = elementSelector.text()
-            link = elementSelector.attr("href")
+            link = elementSelector.attr("href") // link is relative, e.g. /genre/action
 
             return DefaultModelView().apply {
                 this.name = title.replace("Comic Title: ", "")
-                this.pathLink = "$baseUrl${link}"
+                this.pathLink = "$baseUrl$link" // Applied baseUrl here
                 this.type = DefaultModel.GENRE
             }
         }
@@ -108,8 +119,8 @@ class ReadComics(
 
         return ComicViewModel().apply {
             this.name = title.replace("Comic Title: ", "")
-            this.posterPath = "https://readcomicsonline.me${img}"
-            this.pathLink = "https://readcomicsonline.me${link}"
+            this.posterPath = "$baseUrl$img" // Applied baseUrl here
+            this.pathLink = "$baseUrl$link" // Applied baseUrl here
         }
     }
 
@@ -123,17 +134,17 @@ class ReadComics(
 
         if (elementTitleSelector != null) {
             title = elementTitleSelector.text()
-            link = elementTitleSelector.attr("href")
+            link = elementTitleSelector.attr("href") // relative link
         }
 
         if (elementImageSelector != null) {
-            img = elementImageSelector.attr("src")
+            img = elementImageSelector.attr("src") // relative image path
         }
 
         return ComicViewModel().apply {
             this.name = title.replace("Comic Title: ", "")
-            this.posterPath = "https://readcomicsonline.me${img}"
-            this.pathLink = "https://readcomicsonline.me${link}"
+            this.posterPath = "$baseUrl$img" // Applied baseUrl here
+            this.pathLink = "$baseUrl$link" // Applied baseUrl here
         }
     }
 
@@ -173,19 +184,19 @@ class ReadComics(
 
         return ComicViewModel().apply {
             this.name = name.replace("Comic Title: ", "")
-            this.posterPath = "https://readcomicsonline.me${posterPath}"
-            this.pathLink = "$baseUrl${link}"
+            this.posterPath = "$baseUrl$posterPath" // Applied baseUrl here
+            this.pathLink = "$baseUrl$link" // Applied baseUrl here
         }
 
     }
 
     override fun parseAllComicsByGenreByElement(element: Element): ComicViewModel? {
 
-        val posterPath = element.select(".field-name-field-pic img")?.first()?.attr("src")
+        val posterPath = element.select(".field-name-field-pic img")?.first()?.attr("src") // relative
         val titleSelector = element.select("header h2 a")?.first()
 
         var name: String = ""
-        var link: String = ""
+        var link: String = "" // relative
 
         if (titleSelector != null) {
             name = titleSelector.text()
@@ -195,8 +206,8 @@ class ReadComics(
 
         return ComicViewModel().apply {
             this.name = name.replace("Comic Title: ", "")
-            this.posterPath = "https://readcomicsonline.me${posterPath}"
-            this.pathLink = "$baseUrl${link}"
+            this.posterPath = "$baseUrl$posterPath" // Applied baseUrl here
+            this.pathLink = "$baseUrl$link" // Applied baseUrl here
         }
     }
 
@@ -308,7 +319,16 @@ class ReadComics(
                 val imageUrl = element.attr("src")
 
                 if (!imageUrl.isNullOrEmpty()) {
-                    pages.add(Page(pages.size, chapterPath!!, "https://readcomicsonline.me/reader/$imageUrl"))
+                // Assuming imageUrl might be relative to the reader path itself, or needs full base URL.
+                // The old code prepended a fixed reader URL part.
+                // If imageUrl is absolute, no prefix needed. If relative to reader, then reader path.
+                // If relative to site root, then baseUrl.
+                // Current imageUrl from inspect seems to be like "/uploads/..."
+                // So, it should be baseUrl + "/reader" + imageUrl if it's from the /reader/ path
+                // Or if it's a full URL already, it's fine.
+                // The old code "https://readcomicsonline.me/reader/$imageUrl" implies imageUrl is relative to /reader/
+                // Let's keep that logic but use the dynamic baseUrl for the site part.
+                pages.add(Page(pages.size, chapterPath!!, "$baseUrl/reader$imageUrl"))
                 }
             }
 

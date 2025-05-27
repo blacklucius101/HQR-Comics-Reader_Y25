@@ -9,7 +9,8 @@ import com.google.android.material.bottomnavigation.BottomNavigationMenuView
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
-import com.afollestad.materialdialogs.MaterialDialog
+import com.afollestad.materialdialogs.MaterialDialog // Should resolve to new version
+// No specific callback imports needed for these dialogs as they don't have actions
 import com.tiagohs.hqr.R
 import com.tiagohs.hqr.download.DownloadManager
 import com.tiagohs.hqr.helpers.utils.PermissionUtils
@@ -199,21 +200,19 @@ class RootActivity: BaseActivity(), PermissionsCallback {
 
     override fun onPermissionsDenied() {
 
-        MaterialDialog.Builder(this)
-                .content(R.string.persmission_needed_content)
-                .positiveText(android.R.string.yes)
-                .negativeText(android.R.string.no)
-                .build()
-                .show()
+        MaterialDialog(this).show {
+            message(R.string.persmission_needed_content)
+            positiveButton(android.R.string.yes)
+            negativeButton(android.R.string.no)
+        }
     }
 
     override fun onNeverAskAgain(requestCode: Int) {
 
-        MaterialDialog.Builder(this)
-                .content(R.string.persmission_needed_never_ask_content)
-                .positiveText(android.R.string.yes)
-                .negativeText(android.R.string.no)
-                .build()
-                .show()
+        MaterialDialog(this).show {
+            message(R.string.persmission_needed_never_ask_content)
+            positiveButton(android.R.string.yes)
+            negativeButton(android.R.string.no)
+        }
     }
 }
