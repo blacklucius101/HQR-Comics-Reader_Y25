@@ -1,16 +1,14 @@
 package com.tiagohs.hqr.models.database.comics
 
-import com.tiagohs.hqr.helpers.tools.RealmUtils
-import com.tiagohs.hqr.helpers.utils.ScreenUtils
 import com.tiagohs.hqr.models.base.IComic
 import com.tiagohs.hqr.models.database.DefaultModel
 import com.tiagohs.hqr.models.database.SourceDB
-import com.tiagohs.hqr.models.view_models.ComicViewModel
-import io.realm.RealmList
-import io.realm.RealmObject
-import io.realm.annotations.PrimaryKey
+import io.realm.kotlin.ext.realmListOf
+import io.realm.kotlin.types.RealmList
+import io.realm.kotlin.types.RealmObject
+import io.realm.kotlin.types.annotations.PrimaryKey
 
-open class Comic: RealmObject(), IComic {
+class Comic : RealmObject, IComic {
 
     @PrimaryKey
     override var id: Long = -1L
@@ -21,11 +19,11 @@ open class Comic: RealmObject(), IComic {
     override var summary: String? = ""
     override var publicationDate: String? = ""
 
-    override var publisher: RealmList<DefaultModel>? = null
-    override var genres: RealmList<DefaultModel>? = null
-    override var authors: RealmList<DefaultModel>? = null
-    override var scanlators: RealmList<DefaultModel>? = null
-    override var chapters: RealmList<Chapter>? = null
+    override var publisher: RealmList<DefaultModel> = realmListOf()
+    override var genres: RealmList<DefaultModel> = realmListOf()
+    override var authors: RealmList<DefaultModel> = realmListOf()
+    override var scanlators: RealmList<DefaultModel> = realmListOf()
+    override var chapters: RealmList<Chapter> = realmListOf()
 
     override var downloaded: Boolean = false
     override var inicialized: Boolean = false
@@ -33,47 +31,14 @@ open class Comic: RealmObject(), IComic {
     override var lastUpdate: String? = ""
 
     override var status: String? = ""
-        set(value) {
-            field = ScreenUtils.getStatusConstant(value)
-        }
+    // Custom setter logic for 'status' needs to be handled outside the model class in the new SDK
+    // e.g., when mapping from a ViewModel or a DTO.
+    // set(value) {
+    //     field = ScreenUtils.getStatusConstant(value)
+    // }
 
-    override var tags: RealmList<String>? = null
+    override var tags: RealmList<String> = realmListOf()
 
     override var source: SourceDB? = null
 
-    fun create(): Comic {
-        return Comic().apply {
-            this.id = RealmUtils.getDataId<Comic>()
-        }
-    }
-
-    fun create(other: Comic): Comic {
-        return Comic().apply {
-            copyFrom(other)
-        }
-    }
-
-    fun create(other: ComicViewModel): Comic {
-        return Comic().apply {
-            copyFrom(other)
-        }
-    }
-
-    fun create(name: String?, posterPath: String?): Comic {
-        return Comic().apply {
-            this.id = RealmUtils.getDataId<Comic>()
-            this.name = name
-            this.posterPath = posterPath
-        }
-    }
-
-    fun createList(others: List<Comic>): List<Comic> {
-        val finalList = ArrayList<Comic>()
-
-        others.forEach {
-            finalList.add(Comic().create(it))
-        }
-
-        return finalList.toList()
-    }
 }

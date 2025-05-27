@@ -11,11 +11,7 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import com.github.chrisbanes.photoview.OnViewTapListener
 import com.github.chrisbanes.photoview.PhotoViewAttacher
-import com.google.android.gms.ads.AdRequest
-import com.google.android.gms.ads.AdSize
-import com.google.android.gms.ads.AdView
 import com.squareup.picasso.Callback
-import com.tiagohs.hqr.BuildConfig
 import com.tiagohs.hqr.R
 import com.tiagohs.hqr.helpers.utils.ImageUtils
 import com.tiagohs.hqr.models.sources.Page
@@ -47,8 +43,6 @@ class ReaderPagerAdapter(
 
         if (position == 0 && isFirstTime) {
             onShowComicApresentationView(view, page)
-        } else if(page.isAd) {
-            onLoadAd(view)
         } else {
             onLoadPage(view, page)
         }
@@ -56,19 +50,6 @@ class ReaderPagerAdapter(
         container.addView(view)
 
         return view
-    }
-
-    private fun onLoadAd(view: View) {
-        val addView = AdView(context);
-        addView.adSize = AdSize.MEDIUM_RECTANGLE
-        addView.adUnitId = BuildConfig.ADMOB_APP_BANNER_ID
-
-        view.bannerContainer.addView(addView)
-        view.chapterPageProgress?.visibility = View.GONE
-        view.bannerContainer.visibility = View.VISIBLE
-
-        val adRequest = AdRequest.Builder().build()
-        addView.loadAd(adRequest)
     }
 
     private fun onShowComicApresentationView(view: View, page: Page) {

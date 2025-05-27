@@ -16,8 +16,6 @@
     <string name="key_update_version" translatable="false">key_update_version</string>
     <string name="key_check_update_automatic" translatable="false">key_check_update_automatic</string>
 
-    <string name="app_ad_id" translatable="false">ca-app-pub-3940256099942544/6300978111</string>
-
     <string name="app_name">HQR</string>
     <string name="nav_home">Home</string>
     <string name="nav_favorite">Favorites</string>

@@ -46,7 +46,7 @@
 
 
         <provider
-            android:name="android.support.v4.content.FileProvider"
+            android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.provider"
             android:exported="false"
             android:grantUriPermissions="true">
@@ -67,23 +67,10 @@
             android:name=".updater.UpdaterService"
             android:exported="false"/>
 
-        <service
-            android:name="com.evernote.android.job.gcm.PlatformGcmService"
-            android:enabled="true"
-            tools:replace="android:enabled"/>
-
         <activity
             android:name=".ui.views.activities.SettingsActivity"
             android:label="@string/title_activity_settings">
         </activity>
-
-        <meta-data
-            android:name="io.fabric.ApiKey"
-            android:value="1a5d11d9ee01839d87a101a0056c1e5429a4c331" />
-
-        <meta-data
-            android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-5405332351907920~4802649595"/>
     </application>
 
 </manifest>

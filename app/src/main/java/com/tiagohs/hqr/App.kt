@@ -1,26 +1,28 @@
 package com.tiagohs.hqr
 
+package com.tiagohs.hqr
+
 import android.app.Application
 import android.content.Context
-import android.support.multidex.MultiDex
-import com.crashlytics.android.Crashlytics
-import com.evernote.android.job.JobManager
-import com.facebook.stetho.Stetho
-import com.google.android.gms.ads.MobileAds
-import com.squareup.picasso.OkHttp3Downloader
+import androidx.multidex.MultiDex // Updated import
+// import com.evernote.android.job.JobManager // Removed Evernote Job
+// import com.facebook.stetho.Stetho // Removed Stetho
 import com.squareup.picasso.Picasso
-import com.tiagohs.hqr.database.HQRInitialData
+// import com.tiagohs.hqr.database.HQRInitialData // Will be handled with Realm config if needed
 import com.tiagohs.hqr.dragger.components.DaggerHQRComponent
 import com.tiagohs.hqr.dragger.components.HQRComponent
 import com.tiagohs.hqr.dragger.modules.AppModule
-import com.tiagohs.hqr.models.database.CatalogueSource
+import com.tiagohs.hqr.models.database.*
+import com.tiagohs.hqr.models.database.comics.*
 import com.tiagohs.hqr.notification.Notifications
-import com.tiagohs.hqr.updater.UpdaterJob
-import com.uphyca.stetho_realm.RealmInspectorModulesProvider
-import io.fabric.sdk.android.Fabric
-import io.realm.Realm
-import io.realm.RealmConfiguration
+import com.tiagohs.hqr.updater.UpdaterJob // Keep if UpdaterJob is used by something else, remove if only for android-job
+// import com.uphyca.stetho_realm.RealmInspectorModulesProvider // Old Realm - Removed
+// import io.realm.Realm // Old Realm - Removed
+// import io.realm.RealmConfiguration // Old Realm - Removed
+import io.realm.kotlin.RealmConfiguration // New Realm
 import io.reactivex.plugins.RxJavaPlugins
+import timber.log.Timber // Added Timber import
+import com.tiagohs.hqr.BuildConfig // Added BuildConfig for Timber
 
 
 
@@ -34,16 +36,15 @@ class App : Application() {
         super.onCreate()
 
         onConfigureDagger()
-        onConfigureRealm()
+        onConfigureRealm() // RealmConfiguration now provided by Dagger
         setupNotificationChannels()
-        setupJobManager()
+        // setupJobManager() // Removed Evernote Job setup
         onConfigurePicasso()
+        setupTimber() // Added Timber setup call
 
         instance = this
 
         MultiDex.install(this);
-        Fabric.with(this, Crashlytics())
-        MobileAds.initialize(this, "ADMOB_APP_ID")
 
         RxJavaPlugins.setErrorHandler { throwable -> }
     }
@@ -55,10 +56,12 @@ class App : Application() {
     }
 
     private fun onConfigureRealm() {
-        Realm.init(this)
+        // Realm.init(this) // Old Realm init - removed
 
+        // Old RealmConfiguration - commented out
+        /*
         Realm.setDefaultConfiguration(
-                with(RealmConfiguration.Builder()) {
+                with(io.realm.RealmConfiguration.Builder()) { // Disambiguate for clarity
                     name("hqr_db.realm")
                     schemaVersion(1)
 
@@ -67,7 +70,7 @@ class App : Application() {
                         HQRInitialData.initialData(realm).forEach { catalogueSource: CatalogueSource ->
                             realm.createObject(CatalogueSource::class.java, catalogueSource.id).apply {
                                 this.language = catalogueSource.language
-                                this.sourceDBS = catalogueSource.sourceDBS
+                                // this.sourceDBS = catalogueSource.sourceDBS // Needs careful migration
                             }
                         }
 
@@ -75,26 +78,40 @@ class App : Application() {
                     })
                 build()
         })
+        */
 
-        Stetho.initialize(
-                Stetho.newInitializerBuilder(this)
-                        .enableDumpapp(Stetho.defaultDumperPluginsProvider(this))
-                        .enableWebKitInspector(
-                                RealmInspectorModulesProvider
-                                        .builder(this)
-                                        .build())
-                        .build());
+        // New Realm Configuration - This is now provided by Dagger in AppModule.kt
+        // val realmConfiguration = RealmConfiguration.create(schema = setOf(
+        //     CatalogueSource::class, DefaultModel::class, SourceDB::class,
+        //     Chapter::class, Comic::class, ComicHistory::class, Page::class
+        // ))
+
+        // The actual Realm instance should be opened when needed, typically injected.
+        // For now, we just define the configuration.
+        // Example: val realm = Realm.open(realmConfiguration)
+        // We will not set a default instance as the new SDK encourages instance management.
+
+        // Stetho Realm Inspector is for the old Realm, comment out or remove
+        // Stetho related code already commented/removed.
     }
 
-    protected fun setupJobManager() {
-        JobManager.create(this).addJobCreator { tag ->
-            when (tag) {
-                UpdaterJob.TAG -> UpdaterJob()
-                else -> null
-            }
+    // protected fun setupJobManager() { // Removed Evernote Job setup
+    //     JobManager.create(this).addJobCreator { tag ->
+    //         when (tag) {
+    //             UpdaterJob.TAG -> UpdaterJob()
+    //             else -> null
+    //         }
+    //     }
+    // }
+
+    private fun setupTimber() {
+        if (BuildConfig.DEBUG) {
+            Timber.plant(Timber.DebugTree())
+        } else {
+            // Optionally, plant a release tree for crash reporting if you add one later
+            // Timber.plant(CrashReportingTree())
         }
     }
-
 
     private fun onConfigurePicasso() {
         val build = Picasso.Builder(this)

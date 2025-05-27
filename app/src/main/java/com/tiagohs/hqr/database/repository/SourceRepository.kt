@@ -4,122 +4,101 @@ import com.tiagohs.hqr.database.ISourceRepository
 import com.tiagohs.hqr.models.database.CatalogueSource
 import com.tiagohs.hqr.models.database.SourceDB
 import io.reactivex.Observable
-import io.realm.Realm
+import io.realm.kotlin.Realm
+import io.realm.kotlin.RealmConfiguration
+import io.realm.kotlin.UpdatePolicy
+import io.realm.kotlin.ext.query
+import io.realm.kotlin.ext.copyFromRealm
+import kotlinx.coroutines.runBlocking
+import javax.inject.Inject // Added for Dagger
 
-
-class SourceRepository() : BaseRepository(), ISourceRepository {
+class SourceRepository @Inject constructor( // Added @Inject constructor
+    private val realmConfiguration: RealmConfiguration
+) : BaseRepository(realmConfiguration), ISourceRepository {
 
     override fun insertSourceRealm(source: SourceDB): SourceDB {
-        val realm = Realm.getDefaultInstance()
-
-        try {
-            realm.executeTransaction { r -> r.insertOrUpdate(source) }
-
-            finishTransaction(realm)
-        } catch (ex: Exception) {
-            if (!realm.isClosed)
+        return runBlocking {
+            val realm = Realm.open(realmConfiguration)
+            try {
+                realm.write {
+                    copyToRealm(source, updatePolicy = UpdatePolicy.ALL)
+                }
+            } finally {
                 realm.close()
-
-            throw ex
+            }
+            source // Return the original persisted object
         }
-
-        return source
     }
 
     override fun insertSource(sourceDB: SourceDB): Observable<SourceDB> {
-        return insert(sourceDB)
+        // This uses the insert method from BaseRepository, which is already refactored.
+        return super.insert(sourceDB)
     }
 
-    override fun getAllSources(): Observable<List<SourceDB>?> {
-        return startGetTransaction()
-                .map { realm ->
-                    val results = realm.where(SourceDB::class.java)
-                            .findAll()
-                    val sources = SourceDB().createList(results.toList())
-
-                    finishTransaction(realm)
-
-                    sources
+    override fun getAllSources(): Observable<List<SourceDB>> { // Return type non-nullable List
+        return Observable.fromCallable {
+            runBlocking {
+                val realm = Realm.open(realmConfiguration)
+                try {
+                    val results = realm.query<SourceDB>().find()
+                    realm.copyFromRealm(results) // Detach from Realm for use in RxJava stream
+                } finally {
+                    realm.close()
                 }
+            }
+        }
     }
 
-    override fun getAllCatalogueSources(): Observable<List<CatalogueSource>?> {
-        return startGetTransaction()
-                .map { realm ->
-                    val results = realm.where(CatalogueSource::class.java).findAll()
-                    val catalogueSources = CatalogueSource().createList(results.toList())
-
-                    finishTransaction(realm)
-
-                    catalogueSources
+    override fun getAllCatalogueSources(): Observable<List<CatalogueSource>> { // Return type non-nullable List
+        return Observable.fromCallable {
+            runBlocking {
+                val realm = Realm.open(realmConfiguration)
+                try {
+                    val results = realm.query<CatalogueSource>().find()
+                    realm.copyFromRealm(results)
+                } finally {
+                    realm.close()
                 }
+            }
+        }
     }
 
     override fun getCatalogueSourceById(catalogueSourceId: Long): Observable<CatalogueSource?> {
-        return startGetTransaction()
-                .map { realm ->
-                    val result = realm.where(CatalogueSource::class.java)
-                                .equalTo("id", catalogueSourceId)
-                                .findFirst()
-                    var catalogueSource: CatalogueSource? = null
-
-                    if (result != null) {
-                        catalogueSource = CatalogueSource().create(result)
-                    }
-
-                    finishTransaction(realm)
-
-                    catalogueSource
+        return Observable.fromCallable {
+            runBlocking {
+                val realm = Realm.open(realmConfiguration)
+                try {
+                    val result = realm.query<CatalogueSource>("id == $0", catalogueSourceId).first().find()
+                    result?.let { realm.copyFromRealm(it) }
+                } finally {
+                    realm.close()
                 }
+            }
+        }
     }
 
     override fun getSourceByIdRealm(sourceId: Long): SourceDB? {
-        val realm = Realm.getDefaultInstance()
-
-        try {
-            val result = realm.where(SourceDB::class.java)
-                    .equalTo("id", sourceId)
-                    .findFirst()
-            var source: SourceDB? = null
-
-            if (result != null) {
-                source = SourceDB().create(result)
-            }
-
-            finishTransaction(realm)
-
-            return source
-        } catch (ex: Exception) {
-            if (!realm.isClosed)
+        return runBlocking {
+            val realm = Realm.open(realmConfiguration)
+            try {
+                val result = realm.query<SourceDB>("id == $0", sourceId).first().find()
+                result?.let { realm.copyFromRealm(it) } // Detach if found
+            } finally {
                 realm.close()
+            }
         }
-
-        return null
     }
 
     override fun getSourceById(sourceId: Long): Observable<SourceDB?> {
-        return Observable.create<SourceDB> { emitter ->
-            val realm = Realm.getDefaultInstance()
-
-            try {
-                val result = realm.where(SourceDB::class.java)
-                        .equalTo("id", sourceId)
-                        .findFirst()
-                var source: SourceDB? = null
-
-                if (result != null) {
-                    source = SourceDB().create(result)
-                    emitter.onNext(source)
-                }
-
-                finishTransaction(realm)
-
-                emitter.onComplete()
-            } catch (ex: Exception) {
-                if (!realm.isClosed)
+        return Observable.fromCallable {
+            runBlocking {
+                val realm = Realm.open(realmConfiguration)
+                try {
+                    val result = realm.query<SourceDB>("id == $0", sourceId).first().find()
+                    result?.let { realm.copyFromRealm(it) }
+                } finally {
                     realm.close()
-
-                emitter.onError(ex)
+                }
             }
         }
     }

@@ -1,134 +1,107 @@
 package com.tiagohs.hqr.database.repository
 
 import io.reactivex.Observable
-import io.realm.Realm
-import io.realm.RealmObject
+import io.realm.kotlin.Realm
+import io.realm.kotlin.RealmConfiguration
+import io.realm.kotlin.UpdatePolicy
+import io.realm.kotlin.types.RealmObject
+import kotlinx.coroutines.runBlocking
 
+abstract class BaseRepository(
+    // TODO: This configuration needs to be provided by Dagger.
+    // For now, we assume it will be passed or accessed globally from App.kt (though not ideal)
+    // This is a placeholder for where the configuration would come from.
+    // A proper solution would involve Dagger providing this.
+    protected val realmConfiguration: RealmConfiguration // Changed to protected
+) {
 
-
-abstract class BaseRepository {
-
-    protected fun startGetTransaction(): Observable<Realm> {
-        return Observable.create<Realm> { emitter ->
-            val realm = Realm.getDefaultInstance()
-
-            try {
-                emitter.onNext(realm)
-                emitter.onComplete()
-            } catch (ex: Exception) {
-                if (!realm.isClosed)
-                    realm.close()
-
-                emitter.onError(ex)
-            }
-        }
-    }
-
-    protected fun finishTransaction(realmInstance: Realm?) {
-        if (realmInstance != null && !realmInstance.isClosed) realmInstance.close()
-    }
-
-
-    protected inline fun <reified T: RealmObject> insert(data: T): Observable<T> {
-        return startGetTransaction()
-                    .map { realm: Realm ->
-                        realm.executeTransaction {
-                            r -> r.insertOrUpdate(data) }
-
-                        finishTransaction(realm)
-                        data
+    protected inline fun <reified T : RealmObject> insert(data: T): Observable<T> {
+        return Observable.fromCallable {
+            runBlocking { // Bridge to suspend world for Observable
+                val realm = Realm.open(realmConfiguration)
+                try {
+                    realm.write {
+                        copyToRealm(data, updatePolicy = UpdatePolicy.ALL)
                     }
-    }
-
-    protected fun <T: RealmObject> insert(data: List<T>): Observable<List<T>> {
-        return startGetTransaction()
-                .map { realm: Realm ->
-                    realm.executeTransaction { r -> r.insertOrUpdate(data) }
-
-                    finishTransaction(realm)
-                    data
-                }
-    }
-
-    protected inline fun <reified T: RealmObject> deleteAll(): Observable<Void?> {
-        return Observable.create<Void> { emitter ->
-            val realm = Realm.getDefaultInstance()
-
-            try {
-                val results = realm
-                        .where(T::class.java)
-                        .findAll()
-
-                realm.executeTransaction { r ->
-                    results?.deleteAllFromRealm()
-                }
-
-                finishTransaction(realm)
-
-                emitter.onComplete()
-            } catch (ex: Exception) {
-                if (!realm.isClosed)
+                } finally {
                     realm.close()
+                }
+            }
+            data // Return the original data after transaction
+        }
+    }
 
-                emitter.onError(ex)
+    protected fun <T : RealmObject> insert(data: List<T>): Observable<List<T>> {
+        return Observable.fromCallable {
+            runBlocking { // Bridge to suspend world for Observable
+                val realm = Realm.open(realmConfiguration)
+                try {
+                    realm.write {
+                        data.forEach { item ->
+                            copyToRealm(item, updatePolicy = UpdatePolicy.ALL)
+                        }
+                    }
+                } finally {
+                    realm.close()
+                }
+            }
+            data // Return the original list after transaction
+        }
+    }
+
+import io.realm.kotlin.ext.query // Added for query<T>()
+
+// ... (rest of the class from previous turn)
+
+    protected inline fun <reified T : RealmObject> deleteAll(): Observable<Unit> {
+        return Observable.fromCallable {
+            runBlocking {
+                val realm = Realm.open(realmConfiguration)
+                try {
+                    realm.write {
+                        val results = this.query<T>().find()
+                        delete(results)
+                    }
+                } finally {
+                    realm.close()
+                }
             }
         }
     }
 
-    protected inline fun <reified T: RealmObject> delete(id: Long): Observable<Void> {
-        return Observable.create<Void> { emitter ->
-            val realm = Realm.getDefaultInstance()
-
-            try {
-                val results = realm
-                        .where(T::class.java)
-                        .equalTo("id", id)
-                        .findFirst()
-
-                realm.executeTransaction { r ->
-                    results?.deleteFromRealm()
+    protected inline fun <reified T : RealmObject> delete(id: Long): Observable<Unit> {
+        return Observable.fromCallable {
+            runBlocking {
+                val realm = Realm.open(realmConfiguration)
+                try {
+                    realm.write {
+                        this.query<T>("id == $0", id).first().find()?.also {
+                            delete(it)
+                        }
+                    }
+                } finally {
+                    realm.close()
                 }
-
-                finishTransaction(realm)
-
-                emitter.onComplete()
-            } catch (ex: Exception) {
-                if (!realm.isClosed)
-                    realm.close()
-
-                emitter.onError(ex)
             }
         }
     }
 
-    protected inline fun <reified T: RealmObject> delete(itemsId: List<Long>): Observable<Void> {
-        return Observable.create<Void> { emitter ->
-            val realm = Realm.getDefaultInstance()
-
-            try {
-                realm.executeTransaction { r -> findAndDelete<T>(r, itemsId)}
-
-                finishTransaction(realm)
-
-                emitter.onComplete()
-            } catch (ex: Exception) {
-                if (!realm.isClosed)
+    protected inline fun <reified T : RealmObject> delete(itemsId: List<Long>): Observable<Unit> {
+        return Observable.fromCallable {
+            runBlocking {
+                val realm = Realm.open(realmConfiguration)
+                try {
+                    realm.write {
+                        itemsId.forEach { id ->
+                            this.query<T>("id == $0", id).first().find()?.also {
+                                delete(it)
+                            }
+                        }
+                    }
+                } finally {
                     realm.close()
-
-                emitter.onError(ex)
+                }
             }
-        }
-    }
-
-    protected inline fun <reified T: RealmObject> findAndDelete(realm: Realm, itemsId: List<Long>) {
-
-        itemsId.forEach { id ->
-            val results = realm
-                    .where(T::class.java)
-                    .equalTo("id", id)
-                    .findFirst()
-
-            results?.deleteFromRealm()
         }
     }
 

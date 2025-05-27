@@ -1,78 +1,79 @@
 package com.tiagohs.hqr.factory
 
-import com.tiagohs.hqr.helpers.tools.RealmUtils
-import com.tiagohs.hqr.models.database.DefaultModel
-import com.tiagohs.hqr.models.database.SourceDB
+// Removed: import com.tiagohs.hqr.helpers.tools.RealmUtils
+import com.tiagohs.hqr.models.database.DefaultModel // New RealmObject type
+import com.tiagohs.hqr.models.database.SourceDB // New RealmObject type
 import com.tiagohs.hqr.models.view_models.DefaultModelView
-import io.realm.Realm
-import io.realm.RealmList
+// Removed: import io.realm.Realm
+// Removed: import io.realm.RealmList
+import io.realm.kotlin.types.RealmList // For the parameter type of createStringList if it's from new RealmList
 
 object DefaultModelFactory {
 
-    fun createDefaultModelForRealm(defaultModel: DefaultModelView, sourceDB: SourceDB?, realm: Realm): DefaultModel {
-        val realmObject = realm.createObject(DefaultModel::class.java, RealmUtils.getDataId<DefaultModel>(realm))
-
-        realmObject.apply {
-            copyFromDefaultModelView(this, defaultModel, sourceDB, realm)
+    /**
+     * Creates a new (detached) DefaultModel RealmObject from a DefaultModelView.
+     * The sourceDbRef is for linking.
+     */
+    fun createModelFromViewModel(viewModel: DefaultModelView, sourceDbRef: SourceDB?): DefaultModel {
+        return DefaultModel().apply {
+            this.id = viewModel.id // Assuming ID is managed or set if new by repository
+            this.name = viewModel.name
+            this.pathLink = viewModel.pathLink
+            this.type = viewModel.type
+            this.source = sourceDbRef
         }
-
-        return realmObject
     }
 
-    fun copyFromDefaultModelView(defaultModel: DefaultModel, other: DefaultModelView, sourceDB: SourceDB?, realm: Realm): DefaultModel {
-
-        if (!other.name.isNullOrEmpty()) {
-            defaultModel.name = other.name
+    /**
+     * Updates an existing (detached or managed) DefaultModel RealmObject from a DefaultModelView.
+     */
+    fun updateModelFromViewModel(
+        existingModel: DefaultModel,
+        viewModel: DefaultModelView,
+        sourceDbRef: SourceDB?
+    ): DefaultModel {
+        existingModel.name = viewModel.name ?: existingModel.name
+        existingModel.pathLink = viewModel.pathLink ?: existingModel.pathLink
+        existingModel.type = viewModel.type ?: existingModel.type
+        if (sourceDbRef != null) {
+            existingModel.source = sourceDbRef
         }
-
-        if (!other.pathLink.isNullOrEmpty()) {
-            defaultModel.pathLink = other.pathLink
-        }
-
-        if (!other.type.isNullOrEmpty()) {
-            defaultModel.type = other.type
-        }
-
-        if (sourceDB != null) {
-            defaultModel.source = realm.copyToRealmOrUpdate(sourceDB)
-        }
-
-        return defaultModel
+        return existingModel
     }
 
-    fun createListOfDefaultModelForRealm(defaultModelList: List<DefaultModelView>?, source: SourceDB?, realm: Realm): RealmList<DefaultModel> {
-        val list = RealmList<DefaultModel>()
-
-        defaultModelList?.forEach {
-            val defaultModelLocal = realm.where(DefaultModel::class.java)
-                    .equalTo("pathLink", it.pathLink)
-                    .findFirst()
-
-            if (defaultModelLocal == null) {
-                list.add( createDefaultModelForRealm(it, source, realm) )
-            } else {
-                list.add( realm.copyToRealmOrUpdate(defaultModelLocal) )
-            }
+    /**
+     * Maps a list of DefaultModelView objects to a list of new (detached) DefaultModel RealmObjects.
+     */
+    fun createListFromViewModelList(
+        viewModels: List<DefaultModelView>?,
+        sourceDbRef: SourceDB?
+    ): List<DefaultModel> {
+        if (viewModels == null) return emptyList()
+        return viewModels.map { viewModel ->
+            createModelFromViewModel(viewModel, sourceDbRef)
         }
-
-        return list
     }
 
-    fun createListOfDefaultModelView(listDb: List<DefaultModel>?, sourceDB: SourceDB?): List<DefaultModelView> {
-        val defaultModelViewList = ArrayList<DefaultModelView>()
-
-        if (listDb != null) {
-            defaultModelViewList.addAll(listDb.map { DefaultModelView().create(it, sourceDB) })
+    /**
+     * Maps a list of DefaultModel RealmObjects (new SDK) to a list of DefaultModelViews.
+     * Relies on DefaultModelView's own mapping logic (e.g., a constructor or an init/create method).
+     */
+    fun createListOfDefaultModelView(
+        models: List<DefaultModel>?,
+        sourceDbRef: SourceDB? /* Source might be needed for context in ViewModel creation */
+    ): List<DefaultModelView> {
+        if (models == null) return emptyList()
+        return models.map { model ->
+            DefaultModelView().create(model, sourceDbRef) // Assuming DefaultModelView has a 'create' method
         }
-
-        return defaultModelViewList
     }
 
-    fun createListOfTags(tags: RealmList<String>?): List<String> {
-        val list = ArrayList<String>()
-        if (tags != null) list.addAll(tags)
-
-        return list
+    /**
+     * Converts a RealmList<String> (from new SDK) to a standard Kotlin List<String>.
+     * This is useful for mapping list properties from managed RealmObjects to ViewModels.
+     */
+    fun toStringList(realmList: RealmList<String>?): List<String> {
+        return realmList?.toList() ?: emptyList()
     }
 
 }

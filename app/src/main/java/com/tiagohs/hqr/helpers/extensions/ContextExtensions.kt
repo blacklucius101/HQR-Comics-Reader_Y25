@@ -14,11 +14,11 @@ import android.graphics.drawable.Drawable
 import android.net.ConnectivityManager
 import android.os.Build
 import android.os.PowerManager
-import android.support.annotation.StringRes
-import android.support.design.widget.Snackbar
-import android.support.v4.app.NotificationCompat
-import android.support.v4.content.ContextCompat
-import android.support.v4.content.LocalBroadcastManager
+import androidx.annotation.StringRes
+import com.google.android.material.snackbar.Snackbar
+import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import android.widget.TextView
 import android.widget.Toast
 import com.nononsenseapps.filepicker.FilePickerActivity
@@ -28,7 +28,7 @@ import com.tiagohs.hqr.ui.views.activities.CustomLayoutPickerActivity
 
 inline fun Activity.snack(message: String, length: Int = Snackbar.LENGTH_LONG, f: Snackbar.() -> Unit): Snackbar {
     val snack = Snackbar.make(findViewById(R.id.coordinatorLayout), message, length)
-    val textView: TextView = snack.view.findViewById(android.support.design.R.id.snackbar_text)
+    val textView: TextView = snack.view.findViewById(com.google.android.material.R.id.snackbar_text)
     textView.setTextColor(Color.WHITE)
     snack.f()
     snack.show()

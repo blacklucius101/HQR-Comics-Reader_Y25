@@ -1,262 +1,168 @@
 package com.tiagohs.hqr.factory
 
-import com.tiagohs.hqr.helpers.tools.RealmUtils
-import com.tiagohs.hqr.models.database.SourceDB
-import com.tiagohs.hqr.models.database.comics.Comic
+// Removed: import com.tiagohs.hqr.helpers.tools.RealmUtils
+import com.tiagohs.hqr.models.database.SourceDB // New RealmObject type
+import com.tiagohs.hqr.models.database.comics.Comic // New RealmObject type
 import com.tiagohs.hqr.models.view_models.ChapterViewModel
 import com.tiagohs.hqr.models.view_models.ComicViewModel
 import com.tiagohs.hqr.models.view_models.DefaultModelView
-import io.realm.Realm
-import io.realm.RealmList
+// Removed: import io.realm.Realm
+// Removed: import io.realm.RealmList
+import io.realm.kotlin.ext.realmListOf // For new RealmList
 
 object ComicsFactory {
 
-    fun createComicModelForRealm(comicViewModel: ComicViewModel, source: SourceDB?, realm: Realm): Comic {
-        val realmObject = realm.createObject(Comic::class.java, RealmUtils.getDataId<Comic>(realm))
-
-        realmObject.apply {
-            if (!comicViewModel.name.isNullOrEmpty()) {
-                this.name = comicViewModel.name
-            }
-
-            if (!comicViewModel.posterPath.isNullOrEmpty()) {
-                this.posterPath = comicViewModel.posterPath
-            }
-
-            if (!comicViewModel.pathLink.isNullOrEmpty()) {
-                this.pathLink = comicViewModel.pathLink
-            }
-
-            if (!comicViewModel.summary.isNullOrEmpty()) {
-                this.summary = comicViewModel.summary
-            }
-
-            if (!comicViewModel.publicationDate.isNullOrEmpty()) {
-                this.publicationDate = comicViewModel.publicationDate
-            }
-
-            if (source != null) {
-                this.source = realm.copyToRealmOrUpdate(source)
-            }
-
-            if (comicViewModel.publisher != null && comicViewModel.publisher!!.isNotEmpty()) {
-                this.publisher = DefaultModelFactory.createListOfDefaultModelForRealm(comicViewModel.publisher, source, realm)
-            }
-
-            if (comicViewModel.genres != null && comicViewModel.genres!!.isNotEmpty()) {
-                this.genres = DefaultModelFactory.createListOfDefaultModelForRealm(comicViewModel.genres, source, realm)
-            }
-
-            if (comicViewModel.authors != null && comicViewModel.authors!!.isNotEmpty()) {
-                this.authors = DefaultModelFactory.createListOfDefaultModelForRealm(comicViewModel.authors, source, realm)
-            }
-
-            if (comicViewModel.scanlators != null && comicViewModel.scanlators!!.isNotEmpty()) {
-                this.scanlators = DefaultModelFactory.createListOfDefaultModelForRealm(comicViewModel.scanlators, source, realm)
-            }
-
-            if (comicViewModel.chapters != null && comicViewModel.chapters!!.isNotEmpty()) {
-                this.chapters = ChapterFactory.createListOfChaptersFormRealm(comicViewModel.chapters, this, realm)
-            }
-
-            if (!comicViewModel.lastUpdate.isNullOrEmpty()) {
-                this.lastUpdate = comicViewModel.lastUpdate
-            }
-
-            if (!comicViewModel.status.isNullOrEmpty()) {
-                this.status = comicViewModel.status
-            }
-
-            if (comicViewModel.tags != null && comicViewModel.tags!!.isNotEmpty()) {
-                this.tags = createListOfTagsForRealm(comicViewModel.tags)
-            }
-
-            if (!this.inicialized) {
-                this.favorite = comicViewModel.favorite
-                this.downloaded = comicViewModel.downloaded
-            }
-        }
-
-        return realmObject
-    }
-
-    fun copyFromComicViewModel(comicViewModel: ComicViewModel, source: SourceDB?, realm: Realm, skipFavorite: Boolean?): Comic {
+    /**
+     * Creates a new (detached) Comic RealmObject from a ComicViewModel.
+     * References to other RealmObjects (SourceDB, DefaultModel, Chapter) are assumed to be
+     * either already converted to their new RealmObject forms or will be handled by repository
+     * during persistence. This factory focuses on direct property mapping.
+     * ID assignment is taken from ViewModel; repository handles new ID generation if comicVm.id is default.
+     */
+    fun createComicFromViewModel(comicVm: ComicViewModel, sourceDbRef: SourceDB?): Comic {
         return Comic().apply {
-            copyFromComicViewModel(this, comicViewModel, source, realm, skipFavorite)
+            this.id = comicVm.id
+            this.name = comicVm.name
+            this.posterPath = comicVm.posterPath
+            this.pathLink = comicVm.pathLink
+            this.summary = comicVm.summary
+            this.publicationDate = comicVm.publicationDate
+            this.lastUpdate = comicVm.lastUpdate
+            this.status = comicVm.status // Status mapping (e.g., ScreenUtils.getStatusConstant) should be done before calling this factory or in ViewModel
+            this.favorite = comicVm.favorite
+            this.downloaded = comicVm.downloaded
+            this.inicialized = comicVm.inicialized
 
-            if (comicViewModel.id != -1L) {
-                this.id = comicViewModel.id
-            }
+            this.source = sourceDbRef
+
+            // For lists, map from ViewModel lists to new RealmObject lists.
+            // This assumes DefaultModelFactory and ChapterFactory are updated and return new RealmObject types.
+            // The repository will handle persisting these lists.
+            comicVm.publisher?.let { vms -> this.publisher.addAll(DefaultModelFactory.createListFromViewModelList(vms, sourceDbRef)) }
+            comicVm.genres?.let { vms -> this.genres.addAll(DefaultModelFactory.createListFromViewModelList(vms, sourceDbRef)) }
+            comicVm.authors?.let { vms -> this.authors.addAll(DefaultModelFactory.createListFromViewModelList(vms, sourceDbRef)) }
+            comicVm.scanlators?.let { vms -> this.scanlators.addAll(DefaultModelFactory.createListFromViewModelList(vms, sourceDbRef)) }
+            
+            // For chapters, we need the 'this' comic as a reference for ChapterFactory
+            // This creates a slight chicken-and-egg if Chapter needs Comic ID immediately.
+            // For now, pass 'this' (unmanaged Comic) as comicReference.
+            comicVm.chapters?.let { vms -> this.chapters.addAll(ChapterFactory.createChapterListFromViewModelList(vms, this)) }
+
+            comicVm.tags?.let { tagsVm -> this.tags.addAll(tagsVm) }
         }
     }
 
-    fun copyFromComicViewModel(comic: Comic, comicViewModel: ComicViewModel, source: SourceDB?, realm: Realm, skipFavorite: Boolean?): Comic {
+    /**
+     * Updates an existing (detached or managed) Comic RealmObject from a ComicViewModel.
+     */
+    fun updateComicFromViewModel(
+        existingComic: Comic,
+        comicVm: ComicViewModel,
+        sourceDbRef: SourceDB?,
+        skipFavorite: Boolean? = false
+    ): Comic {
+        existingComic.name = comicVm.name ?: existingComic.name
+        existingComic.posterPath = comicVm.posterPath ?: existingComic.posterPath
+        existingComic.pathLink = comicVm.pathLink ?: existingComic.pathLink
+        existingComic.summary = comicVm.summary ?: existingComic.summary
+        existingComic.publicationDate = comicVm.publicationDate ?: existingComic.publicationDate
+        existingComic.lastUpdate = comicVm.lastUpdate ?: existingComic.lastUpdate
+        existingComic.status = comicVm.status ?: existingComic.status // status mapping done elsewhere
 
-        if (!comicViewModel.name.isNullOrEmpty()) {
-            comic.name = comicViewModel.name
+        if (sourceDbRef != null) {
+            existingComic.source = sourceDbRef
         }
 
-        if (!comicViewModel.posterPath.isNullOrEmpty()) {
-            comic.posterPath = comicViewModel.posterPath
+        // TODO: More sophisticated list update logic might be needed (clear and add, or diffing).
+        // For now, assuming replacement or that the repository handles merging.
+        comicVm.publisher?.let { vms ->
+            existingComic.publisher.clear()
+            existingComic.publisher.addAll(DefaultModelFactory.createListFromViewModelList(vms, sourceDbRef))
+        }
+        comicVm.genres?.let { vms ->
+            existingComic.genres.clear()
+            existingComic.genres.addAll(DefaultModelFactory.createListFromViewModelList(vms, sourceDbRef))
+        }
+        comicVm.authors?.let { vms ->
+            existingComic.authors.clear()
+            existingComic.authors.addAll(DefaultModelFactory.createListFromViewModelList(vms, sourceDbRef))
+        }
+        comicVm.scanlators?.let { vms ->
+            existingComic.scanlators.clear()
+            existingComic.scanlators.addAll(DefaultModelFactory.createListFromViewModelList(vms, sourceDbRef))
+        }
+        comicVm.chapters?.let { vms ->
+            existingComic.chapters.clear()
+            existingComic.chapters.addAll(ChapterFactory.createChapterListFromViewModelList(vms, existingComic))
+        }
+        comicVm.tags?.let { tagsVm ->
+            existingComic.tags.clear()
+            existingComic.tags.addAll(tagsVm)
         }
 
-        if (!comicViewModel.pathLink.isNullOrEmpty()) {
-            comic.pathLink = comicViewModel.pathLink
+        if (skipFavorite != true) {
+            existingComic.favorite = comicVm.favorite
+            existingComic.downloaded = comicVm.downloaded
         }
+        existingComic.inicialized = comicVm.inicialized
 
-        if (!comicViewModel.summary.isNullOrEmpty()) {
-            comic.summary = comicViewModel.summary
-        }
-
-        if (!comicViewModel.publicationDate.isNullOrEmpty()) {
-            comic.publicationDate = comicViewModel.publicationDate
-        }
-
-        if (source != null) {
-            comic.source = realm.copyToRealmOrUpdate(source)
-        }
-
-        if (comicViewModel.publisher != null && comicViewModel.publisher!!.isNotEmpty()) {
-            comic.publisher = DefaultModelFactory.createListOfDefaultModelForRealm(comicViewModel.publisher, source, realm)
-        }
-
-        if (comicViewModel.genres != null && comicViewModel.genres!!.isNotEmpty()) {
-            comic.genres = DefaultModelFactory.createListOfDefaultModelForRealm(comicViewModel.genres, source, realm)
-        }
-
-        if (comicViewModel.authors != null && comicViewModel.authors!!.isNotEmpty()) {
-            comic.authors = DefaultModelFactory.createListOfDefaultModelForRealm(comicViewModel.authors, source, realm)
-        }
-
-        if (comicViewModel.scanlators != null && comicViewModel.scanlators!!.isNotEmpty()) {
-            comic.scanlators = DefaultModelFactory.createListOfDefaultModelForRealm(comicViewModel.scanlators, source, realm)
-        }
-
-        if (comicViewModel.chapters != null && comicViewModel.chapters!!.isNotEmpty()) {
-            comic.chapters = ChapterFactory.createListOfChaptersFormRealm(comicViewModel.chapters, comic, realm)
-        }
-
-        if (!comicViewModel.lastUpdate.isNullOrEmpty()) {
-            comic.lastUpdate = comicViewModel.lastUpdate
-        }
-
-        if (!comicViewModel.status.isNullOrEmpty()) {
-            comic.status = comicViewModel.status
-        }
-
-        if (comicViewModel.tags != null && comicViewModel.tags!!.isNotEmpty()) {
-            comic.tags = createListOfTagsForRealm(comicViewModel.tags)
-        }
-
-        if (!skipFavorite!!) {
-            comic.favorite = comicViewModel.favorite
-            comic.downloaded = comicViewModel.downloaded
-        }
-
-        comic.inicialized = comicViewModel.inicialized
-
-        return comic
+        return existingComic
     }
 
+    /**
+     * Maps a Comic RealmObject (new SDK, assumed detached or managed) to a ComicViewModel.
+     * Relies on ViewModel's own mapping logic for nested objects if present.
+     */
     fun createComicViewModel(comicDb: Comic): ComicViewModel {
         return ComicViewModel().apply {
-            if (comicDb.id != -1L) {
-                this.id = comicDb.id
-            }
+            this.id = comicDb.id
+            this.name = comicDb.name
+            this.pathLink = comicDb.pathLink
+            
+            // Assuming SourceDB also has a mapping to its ViewModel or is directly usable
+            // This requires SourceDB to be refactored if it had a .create() method like others.
+            // For now, direct assignment or placeholder.
+            comicDb.source?.let { s -> this.source = s } // Direct assign, may need mapping
 
-            if (!comicDb.name.isNullOrEmpty()) {
-                this.name = comicDb.name
-            }
+            this.posterPath = comicDb.posterPath
+            this.summary = comicDb.summary
+            this.publicationDate = comicDb.publicationDate
 
-            if (!comicDb.pathLink.isNullOrEmpty()) {
-                this.pathLink = comicDb.pathLink
-            }
+            this.publisher = comicDb.publisher.map { DefaultModelView().create(it, comicDb.source) } // Assumes DefaultModelView.create is updated
+            this.genres = comicDb.genres.map { DefaultModelView().create(it, comicDb.source) }
+            this.authors = comicDb.authors.map { DefaultModelView().create(it, comicDb.source) }
+            this.scanlators = comicDb.scanlators.map { DefaultModelView().create(it, comicDb.source) }
+            
+            this.chapters = comicDb.chapters.map { ChapterViewModel().create(it) } // Assumes ChapterViewModel.create is updated
 
-            if (comicDb.source != null) {
-                this.source = SourceDB().create(comicDb.source!!)
-            }
+            this.tags = realmListOf() // New RealmList
+            this.tags.addAll(comicDb.tags)
 
-            if (!comicDb.posterPath.isNullOrEmpty()) {
-                this.posterPath = comicDb.posterPath
-            }
 
-            if (!comicDb.summary.isNullOrEmpty()) {
-                this.summary = comicDb.summary
-            }
-
-            if (!comicDb.publicationDate.isNullOrEmpty()) {
-                this.publicationDate = comicDb.publicationDate
-            }
-
-            if (comicDb.publisher != null && comicDb.publisher!!.isNotEmpty()) {
-                this.publisher = comicDb.publisher!!.map { DefaultModelView().create(it, source) }
-            }
-
-            if (comicDb.genres != null && comicDb.genres!!.isNotEmpty()) {
-                this.genres = comicDb.genres!!.map { DefaultModelView().create(it, source) }
-            }
-
-            if (comicDb.authors != null && comicDb.authors!!.isNotEmpty()) {
-                this.authors = comicDb.authors!!.map { DefaultModelView().create(it, source) }
-            }
-
-            if (comicDb.scanlators != null && comicDb.scanlators!!.isNotEmpty()) {
-                this.scanlators = comicDb.scanlators!!.map { DefaultModelView().create(it, source) }
-            }
-
-            if (comicDb.chapters != null && comicDb.chapters!!.isNotEmpty()) {
-                this.chapters = comicDb.chapters!!.toList().map { ChapterViewModel().create(it) }
-            }
-
-            if (comicDb.tags != null && comicDb.tags!!.isNotEmpty()) {
-                this.tags = comicDb.tags!!.toList()
-            }
-
-            if (!comicDb.lastUpdate.isNullOrEmpty()) {
-                this.lastUpdate = comicDb.lastUpdate
-            }
-
-            if (!comicDb.status.isNullOrEmpty()) {
-                this.status = comicDb.status
-            }
-
+            this.lastUpdate = comicDb.lastUpdate
+            this.status = comicDb.status
             this.favorite = comicDb.favorite
             this.inicialized = comicDb.inicialized
             this.downloaded = comicDb.downloaded
         }
     }
 
-    fun createListOfComicModelFormRealm(comicViewModels: List<ComicViewModel>?, source: SourceDB?, realm: Realm): List<Comic> {
-        val list = ArrayList<Comic>()
-
-        comicViewModels?.forEach {
-            val comicLocal = realm.where(Comic::class.java)
-                    .equalTo("source.id", source?.id)
-                    .equalTo("pathLink", it.pathLink)
-                    .findFirst()
-
-            if (comicLocal == null) {
-                list.add( createComicModelForRealm(it, source, realm) )
-            } else {
-                list.add( realm.copyToRealmOrUpdate(comicLocal))
-            }
-        }
-
-        return list
+    /**
+     * Maps a list of ComicViewModel objects to a list of new (detached) Comic RealmObjects.
+     */
+    fun createComicListFromViewModelList(comicViewModels: List<ComicViewModel>?, sourceDbRef: SourceDB?): List<Comic> {
+        if (comicViewModels == null) return emptyList()
+        return comicViewModels.map { createComicFromViewModel(it, sourceDbRef) }
     }
 
+    /**
+     * Maps a list of Comic RealmObjects (new SDK) to a list of ComicViewModels.
+     */
     fun createListOfComicViewModel(comicsDb: List<Comic>): List<ComicViewModel> {
-        val comicDbList = ArrayList<ComicViewModel>()
-        comicDbList.addAll(comicsDb.map { createComicViewModel(it) })
-
-        return comicDbList
+        return comicsDb.map { createComicViewModel(it) }
     }
 
-    fun createListOfTagsForRealm(tags: List<String>?): RealmList<String> {
-        val list = RealmList<String>()
-        if (tags != null) list.addAll(tags)
-
-        return list
-    }
+    // createListOfTagsForRealm is no longer needed as RealmList<String> can be directly assigned from List<String>
+    // in the new model (e.g., comic.tags.addAll(listOfStrings))
 
 }

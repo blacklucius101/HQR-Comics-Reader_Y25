@@ -1,8 +1,8 @@
 package com.tiagohs.hqr.ui.adapters.pagers
 
-import android.support.v4.app.Fragment
-import android.support.v4.app.FragmentManager
-import android.support.v4.app.FragmentStatePagerAdapter
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentManager
+import androidx.fragment.app.FragmentStatePagerAdapter
 import com.tiagohs.hqr.models.view_models.ComicViewModel
 import com.tiagohs.hqr.ui.views.fragments.ComicChaptersFragment
 import com.tiagohs.hqr.ui.views.fragments.ComicResumeFragment

@@ -1,11 +1,10 @@
 package com.tiagohs.hqr.models.database
 
-import com.tiagohs.hqr.helpers.tools.RealmUtils
 import com.tiagohs.hqr.models.base.ISource
-import io.realm.RealmObject
-import io.realm.annotations.PrimaryKey
+import io.realm.kotlin.types.RealmObject
+import io.realm.kotlin.types.annotations.PrimaryKey
 
-open class SourceDB: ISource,  RealmObject() {
+class SourceDB : RealmObject, ISource {
 
     @PrimaryKey
     override var id: Long = -1L
@@ -23,28 +22,5 @@ open class SourceDB: ISource,  RealmObject() {
     override var hasInPublisherPageSupport: Boolean = false
     override var hasInScanlatorPageSupport: Boolean = false
     override var hasInGenresPageSupport: Boolean = false
-
-
-    fun create(): SourceDB {
-        return SourceDB().apply {
-            this.id = RealmUtils.getDataId<SourceDB>()
-        }
-    }
-
-    fun create(other: SourceDB): SourceDB {
-        return SourceDB().apply {
-            copyFrom(other)
-        }
-    }
-
-    fun createList(others: List<SourceDB>): List<SourceDB> {
-        val finalResults = ArrayList<SourceDB>();
-
-        others.forEach {
-            finalResults.add(SourceDB().create(it))
-        }
-
-        return finalResults.toList()
-    }
 
 }

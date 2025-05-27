@@ -3,16 +3,13 @@ package com.tiagohs.hqr.ui.views.config
 import android.content.Context
 import android.net.Uri
 import android.os.Bundle
-import android.support.customtabs.CustomTabsIntent
-import android.support.design.widget.Snackbar
-import android.support.v4.app.Fragment
+import androidx.browser.customtabs.CustomTabsIntent
+import com.google.android.material.snackbar.Snackbar
+import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import com.google.android.gms.ads.AdRequest
-import com.google.android.gms.ads.AdView
 import com.tiagohs.hqr.App
-import com.tiagohs.hqr.BuildConfig
 import com.tiagohs.hqr.R
 import com.tiagohs.hqr.dragger.components.HQRComponent
 import com.tiagohs.hqr.helpers.extensions.getResourceColor
@@ -108,10 +105,6 @@ abstract class BaseFragment: Fragment() {
         } else {
             activity?.toast(finalMessage)
         }
-    }
-
-    fun showAd(adView: AdView) {
-        adView.loadAd(AdRequest.Builder().build())
     }
 
     abstract fun onErrorAction()

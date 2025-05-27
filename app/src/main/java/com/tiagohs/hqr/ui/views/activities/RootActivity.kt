@@ -4,16 +4,12 @@ import android.Manifest
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
-import android.support.design.internal.BottomNavigationItemView
-import android.support.design.internal.BottomNavigationMenuView
-import android.support.v4.app.Fragment
+import com.google.android.material.bottomnavigation.BottomNavigationItemView
+import com.google.android.material.bottomnavigation.BottomNavigationMenuView
+import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import com.afollestad.materialdialogs.MaterialDialog
-import com.google.android.gms.ads.AdRequest
-import com.google.android.gms.ads.AdSize
-import com.google.android.gms.ads.AdView
-import com.tiagohs.hqr.BuildConfig
 import com.tiagohs.hqr.R
 import com.tiagohs.hqr.download.DownloadManager
 import com.tiagohs.hqr.helpers.utils.PermissionUtils
@@ -66,7 +62,6 @@ class RootActivity: BaseActivity(), PermissionsCallback {
 
         onSetupBottomNavigation()
         supportActionBar!!.setDisplayHomeAsUpEnabled(false)
-        onLoadAd()
 
         val permissionList = arrayListOf(Manifest.permission.WRITE_EXTERNAL_STORAGE)
 
@@ -77,17 +72,6 @@ class RootActivity: BaseActivity(), PermissionsCallback {
         permissions.onCheckAndRequestPermissions(permissionList, this)
 
         onInit()
-    }
-
-    private fun onLoadAd() {
-        val addView = AdView(this);
-        addView.adSize = AdSize.BANNER
-        addView.adUnitId = BuildConfig.ADMOB_APP_BANNER_ID
-
-        bannerContainer.addView(addView)
-
-        val adRequest = AdRequest.Builder().build()
-        addView.loadAd(adRequest)
     }
 
     private fun onInit() {
